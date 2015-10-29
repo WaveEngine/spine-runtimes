@@ -1,25 +1,26 @@
 -------------------------------------------------------------------------------
 -- Spine Runtimes Software License
--- Version 2.1
+-- Version 2.3
 -- 
--- Copyright (c) 2013, Esoteric Software
+-- Copyright (c) 2013-2015, Esoteric Software
 -- All rights reserved.
 -- 
 -- You are granted a perpetual, non-exclusive, non-sublicensable and
--- non-transferable license to install, execute and perform the Spine Runtimes
--- Software (the "Software") solely for internal use. Without the written
--- permission of Esoteric Software (typically granted by licensing Spine), you
--- may not (a) modify, translate, adapt or otherwise create derivative works,
--- improvements of the Software or develop new applications using the Software
--- or (b) remove, delete, alter or obscure any trademarks or any copyright,
--- trademark, patent or other intellectual property or proprietary rights
--- notices on or in the Software, including any copy thereof. Redistributions
--- in binary or source form must include this license and terms.
+-- non-transferable license to use, install, execute and perform the Spine
+-- Runtimes Software (the "Software") and derivative works solely for personal
+-- or internal use. Without the written permission of Esoteric Software (see
+-- Section 2 of the Spine Software License Agreement), you may not (a) modify,
+-- translate, adapt or otherwise create derivative works, improvements of the
+-- Software or develop new applications using the Software or (b) remove,
+-- delete, alter or obscure any trademarks or any copyright, trademark, patent
+-- or other intellectual property or proprietary rights notices on or in the
+-- Software, including any copy thereof. Redistributions in binary or source
+-- form must include this license and terms.
 -- 
 -- THIS SOFTWARE IS PROVIDED BY ESOTERIC SOFTWARE "AS IS" AND ANY EXPRESS OR
 -- IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
 -- MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO
--- EVENT SHALL ESOTERIC SOFTARE BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+-- EVENT SHALL ESOTERIC SOFTWARE BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
 -- SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 -- PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
 -- OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
@@ -35,6 +36,7 @@ spine.SkeletonJson = require "spine-lua.SkeletonJson"
 spine.SkeletonData = require "spine-lua.SkeletonData"
 spine.BoneData = require "spine-lua.BoneData"
 spine.SlotData = require "spine-lua.SlotData"
+spine.IkConstraintData = require "spine-lua.IkConstraintData"
 spine.Skin = require "spine-lua.Skin"
 spine.RegionAttachment = require "spine-lua.RegionAttachment"
 spine.MeshAttachment = require "spine-lua.MeshAttachment"
@@ -42,6 +44,7 @@ spine.SkinnedMeshAttachment = require "spine-lua.SkinnedMeshAttachment"
 spine.Skeleton = require "spine-lua.Skeleton"
 spine.Bone = require "spine-lua.Bone"
 spine.Slot = require "spine-lua.Slot"
+spine.IkConstraint = require "spine-lua.IkConstraint"
 spine.AttachmentType = require "spine-lua.AttachmentType"
 spine.AttachmentLoader = require "spine-lua.AttachmentLoader"
 spine.Animation = require "spine-lua.Animation"
@@ -50,6 +53,7 @@ spine.AnimationState = require "spine-lua.AnimationState"
 spine.EventData = require "spine-lua.EventData"
 spine.Event = require "spine-lua.Event"
 spine.SkeletonBounds = require "spine-lua.SkeletonBounds"
+spine.BlendMode = require "spine-lua.BlendMode"
 
 spine.utils.readFile = function (fileName, base)
 	if not base then base = system.ResourceDirectory end
@@ -123,15 +127,24 @@ function spine.Skeleton.new (skeletonData, group)
 						print("Error creating image: " .. attachment.name)
 						image = spine.Skeleton.failed
 					end
-					if slot.data.additiveBlending then image.blendMode = "add" end
+					if slot.data.blendMode == spine.BlendMode.normal then
+						image.blendMode = "normal"
+					elseif slot.data.blendMode == spine.BlendMode.additive then
+						image.blendMode = "add"
+					elseif slot.data.blendMode == spine.BlendMode.multiply then
+						image.blendMode = "multiply"
+					elseif slot.data.blendMode == spine.BlendMode.screen then
+						image.blendMode = "screen"
+					end
 					images[slot] = image
 				end
 				-- Position image based on attachment and bone.
 				if image ~= spine.Skeleton.failed then
-					local flipX, flipY = ((self.flipX and -1) or 1), ((self.flipY and -1) or 1)
+					local bone = slot.bone
+					local flipX, flipY = ((bone.worldFlipX and -1) or 1), ((bone.worldFlipY and -1) or 1)
 
-					local x = slot.bone.worldX + attachment.x * slot.bone.m00 + attachment.y * slot.bone.m01
-					local y = -(slot.bone.worldY + attachment.x * slot.bone.m10 + attachment.y * slot.bone.m11)
+					local x = bone.worldX + attachment.x * bone.m00 + attachment.y * bone.m01
+					local y = -(bone.worldY + attachment.x * bone.m10 + attachment.y * bone.m11)
 					if not image.lastX then
 						image.x, image.y = x, y
 						image.lastX, image.lastY = x, y
@@ -145,16 +158,16 @@ function spine.Skeleton.new (skeletonData, group)
 					-- Fix scaling when attachment is rotated 90 or -90.
 					local rotation = math.abs(attachment.rotation) % 180
 					if (rotation == 90) then
-						xScale = xScale * slot.bone.worldScaleY
-						yScale = yScale * slot.bone.worldScaleX
+						xScale = xScale * bone.worldScaleY
+						yScale = yScale * bone.worldScaleX
 					else
-						xScale = xScale * slot.bone.worldScaleX
-						yScale = yScale * slot.bone.worldScaleY
+						xScale = xScale * bone.worldScaleX
+						yScale = yScale * bone.worldScaleY
 						if rotation ~= 0 and xScale ~= yScale and not image.rotationWarning then
 							image.rotationWarning = true
 							print("WARNING: Non-uniform bone scaling with attachments not rotated to\n"
 								.."         cardinal angles will not work as expected with Corona.\n"
-								.."         Bone: "..slot.bone.data.name..", slot: "..slot.data.name..", attachment: "..attachment.name)
+								.."         Bone: "..bone.data.name..", slot: "..slot.data.name..", attachment: "..attachment.name)
 						end
 					end
 					if not image.lastScaleX then
@@ -165,7 +178,7 @@ function spine.Skeleton.new (skeletonData, group)
 						image.lastScaleX, image.lastScaleY = xScale, yScale
 					end
 
-					rotation = -(slot.bone.worldRotation + attachment.rotation) * flipX * flipY
+					rotation = -(bone.worldRotation + attachment.rotation) * flipX * flipY
 					if not image.lastRotation then
 						image.rotation = rotation
 						image.lastRotation = rotation
@@ -199,13 +212,13 @@ function spine.Skeleton.new (skeletonData, group)
 				bone.line.x = bone.worldX
 				bone.line.y = -bone.worldY
 				bone.line.rotation = -bone.worldRotation
-				if self.flipX then
+				if bone.worldFlipX then
 					bone.line.xScale = -1
 					bone.line.rotation = -bone.line.rotation
 				else
 					bone.line.xScale = 1
 				end
-				if self.flipY then
+				if bone.worldFlipY then
 					bone.line.yScale = -1
 					bone.line.rotation = -bone.line.rotation
 				else

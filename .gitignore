@@ -19,28 +19,32 @@ spine-cpp/Debug/*
 spine-sfml/Debug/*
 spine-sfml/SFML
 
-spine-libgdx/bin/*
-spine-libgdx/libs/*
+spine-libgdx/spine-libgdx/bin/*
+spine-libgdx/spine-libgdx-tests/bin/*
+spine-libgdx/spine-skeletonviewer/bin/*
 
 spine-cocos2dx/2/cocos2dx/
 !spine-cocos2dx/2/cocos2dx/Place cocos2dx here.txt
 spine-cocos2dx/2/example/proj.win32/Debug
-spine-cocos2dx/3.0/cocos2dx/
-!spine-cocos2dx/3.0/cocos2dx/Place cocos2dx here.txt
-spine-cocos2dx/3.0/example/proj.win32/Debug
-spine-cocos2dx/3.1/cocos2dx/
-!spine-cocos2dx/3.1/cocos2dx/Place cocos2dx here.txt
-spine-cocos2dx/3.1/example/proj.win32/Debug
+spine-cocos2dx/3/cocos2dx/
+!spine-cocos2dx/3/cocos2dx/Place cocos2dx here.txt
+spine-cocos2dx/3/example/proj.win32/Debug
 xcuserdata
 
 spine-cocos2d-iphone/2/cocos2d/*
 !spine-cocos2d-iphone/2/cocos2d/Place cocos2d here.txt
+spine-cocos2d-iphone/3/cocos2d/*
+!spine-cocos2d-iphone/3/cocos2d/Place cocos2d here.txt
 
 spine-csharp/bin
 spine-csharp/obj
+spine-csharp/src/*.cs.meta
 
 spine-monogame/xamarinstudio-ios/src/bin
 spine-monogame/xamarinstudio-ios/src/obj
+
+spine-monogame/xamarinstudio-ios/example/bin
+spine-monogame/xamarinstudio-ios/example/obj
 
 spine-monogame/windows8-store/src/bin
 spine-monogame/windows8-store/src/obj
@@ -60,6 +64,7 @@ spine-unity/ProjectSettings
 spine-unity/Temp
 spine-unity/Library
 spine-unity/*.sln
+spine-unity/obj
 Assembly-*.csproj
 Assembly-*.pidb
 AssetStoreTools*
@@ -83,6 +88,9 @@ spine-love/love/
 spine-as3/spine-as3/bin
 spine-as3/spine-as3-example/bin-debug
 spine-as3/spine-as3-example/bin-release
+
 spine-starling/spine-starling/bin
 spine-starling/spine-starling-example/bin-debug
 spine-starling/spine-starling-example/bin-release
+
+spine-turbulenz/spine-js/spine.js

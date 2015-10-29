@@ -1,25 +1,26 @@
 /******************************************************************************
  * Spine Runtimes Software License
- * Version 2.1
+ * Version 2.3
  * 
- * Copyright (c) 2013, Esoteric Software
+ * Copyright (c) 2013-2015, Esoteric Software
  * All rights reserved.
  * 
  * You are granted a perpetual, non-exclusive, non-sublicensable and
- * non-transferable license to install, execute and perform the Spine Runtimes
- * Software (the "Software") solely for internal use. Without the written
- * permission of Esoteric Software (typically granted by licensing Spine), you
- * may not (a) modify, translate, adapt or otherwise create derivative works,
- * improvements of the Software or develop new applications using the Software
- * or (b) remove, delete, alter or obscure any trademarks or any copyright,
- * trademark, patent or other intellectual property or proprietary rights
- * notices on or in the Software, including any copy thereof. Redistributions
- * in binary or source form must include this license and terms.
+ * non-transferable license to use, install, execute and perform the Spine
+ * Runtimes Software (the "Software") and derivative works solely for personal
+ * or internal use. Without the written permission of Esoteric Software (see
+ * Section 2 of the Spine Software License Agreement), you may not (a) modify,
+ * translate, adapt or otherwise create derivative works, improvements of the
+ * Software or develop new applications using the Software or (b) remove,
+ * delete, alter or obscure any trademarks or any copyright, trademark, patent
+ * or other intellectual property or proprietary rights notices on or in the
+ * Software, including any copy thereof. Redistributions in binary or source
+ * form must include this license and terms.
  * 
  * THIS SOFTWARE IS PROVIDED BY ESOTERIC SOFTWARE "AS IS" AND ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
  * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO
- * EVENT SHALL ESOTERIC SOFTARE BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ * EVENT SHALL ESOTERIC SOFTWARE BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
  * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
  * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
@@ -41,6 +42,9 @@ import flash.geom.Matrix;
 import flash.geom.Point;
 import flash.utils.Dictionary;
 
+import spine.BlendMode;
+import spine.flash.SkeletonSprite;
+
 import starling.core.RenderSupport;
 import starling.core.Starling;
 import starling.display.BlendMode;
@@ -56,13 +60,14 @@ internal class PolygonBatch {
 
 	private var _capacity:int;
 	public var maxCapacity:int = 2000;
-	public var smoothing:String = "bilinear";
+	public var smoothing:String = TextureSmoothing.BILINEAR;
 
 	private var _texture:Texture;
 	private var _support:RenderSupport;
 	private var _programBits:uint;
-	private var _blendMode:String;
-	private var _additive:Boolean;
+	private var _blendModeNormal:String;
+	private var _blendMode:spine.BlendMode;
+	private var _alpha:Number;
 
 	private var _verticesCount:int;
 	private var _vertices:Vector.<Number> = new <Number>[];
@@ -85,18 +90,15 @@ internal class PolygonBatch {
 
 	public function begin (support:RenderSupport, alpha:Number, blendMode:String) : void {
 		_support = support;
-		_renderAlpha[3] = alpha;
+		_alpha = alpha;
 		_programBits = 0xffffffff;
+		_blendMode = null;
 
 		support.finishQuadBatch();
-
 		support.blendMode = blendMode;
-		support.applyBlendMode(true);
-		_blendMode = support.blendMode;
-		_additive = false;
+		_blendModeNormal = support.blendMode;
 
 		var context:Context3D = Starling.context;
-		context.setProgramConstantsFromVector(Context3DProgramType.VERTEX, 0, _renderAlpha, 1);
 		context.setProgramConstantsFromMatrix(Context3DProgramType.VERTEX, 1, support.mvpMatrix3D, true);
 
 		var verticesBuffer:VertexBuffer3D = _verticesBuffer;
@@ -117,15 +119,18 @@ internal class PolygonBatch {
 	}
 
 	public function add (texture:Texture, vertices:Vector.<Number>, vl:int, uvs:Vector.<Number>, triangles:Vector.<uint>,
-						 r:Number, g:Number, b:Number, a:Number, additive:Boolean, matrix:Matrix) : void {
-		if (additive != _additive) {
-			_additive = additive;
+						 r:Number, g:Number, b:Number, a:Number, blendMode:spine.BlendMode, matrix:Matrix) : void {
+		if (blendMode != _blendMode) {
+			_blendMode = blendMode;
 			flush();
-			_support.blendMode = additive ? BlendMode.ADD : _blendMode;
+			if (blendMode == spine.BlendMode.normal)
+				_support.blendMode = _blendModeNormal;
+			else
+				_support.blendMode = spine.starling.SkeletonSprite.blendModes[blendMode.ordinal];
 			_support.applyBlendMode(true);
 		}
 
-		if (texture != _texture) {
+		if (!_texture || texture.base != _texture.base) {
 			flush();
 			_texture = texture;
 		}
@@ -217,6 +222,13 @@ internal class PolygonBatch {
 			_trianglesBuffer.uploadFromVector(_triangles, 0, _trianglesCount);
 		}
 
+		var pma:Boolean = _texture ? _texture.premultipliedAlpha : true;
+		_renderAlpha[0] = _renderAlpha[1] = _renderAlpha[2] = pma ? _alpha : 1.0;
+		_renderAlpha[3] = _alpha;
+
+		_support.applyBlendMode(pma);
+		context.setProgramConstantsFromVector(Context3DProgramType.VERTEX, 0, _renderAlpha, 1);
+
 		setProgram(context);
 		context.setTextureAt(0, _texture.base);
 		context.drawTriangles(_trianglesBuffer, 0, _trianglesCount / 3);
@@ -264,7 +276,7 @@ internal class PolygonBatch {
 			var fragmentShader:String = 
 				"tex ft1, v1, fs0 " + flags + " \n" + // sample texture 0
 				"mul oc, ft1, v0 \n"; // multiply color with texel color
-			Starling.current.registerProgramFromSource(name, vertexShader, fragmentShader);
+			program = Starling.current.registerProgramFromSource(name, vertexShader, fragmentShader);
 		}
 		context.setProgram(program);
 	}

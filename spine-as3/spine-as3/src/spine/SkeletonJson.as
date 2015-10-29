@@ -1,25 +1,26 @@
 /******************************************************************************
  * Spine Runtimes Software License
- * Version 2.1
+ * Version 2.3
  * 
- * Copyright (c) 2013, Esoteric Software
+ * Copyright (c) 2013-2015, Esoteric Software
  * All rights reserved.
  * 
  * You are granted a perpetual, non-exclusive, non-sublicensable and
- * non-transferable license to install, execute and perform the Spine Runtimes
- * Software (the "Software") solely for internal use. Without the written
- * permission of Esoteric Software (typically granted by licensing Spine), you
- * may not (a) modify, translate, adapt or otherwise create derivative works,
- * improvements of the Software or develop new applications using the Software
- * or (b) remove, delete, alter or obscure any trademarks or any copyright,
- * trademark, patent or other intellectual property or proprietary rights
- * notices on or in the Software, including any copy thereof. Redistributions
- * in binary or source form must include this license and terms.
+ * non-transferable license to use, install, execute and perform the Spine
+ * Runtimes Software (the "Software") and derivative works solely for personal
+ * or internal use. Without the written permission of Esoteric Software (see
+ * Section 2 of the Spine Software License Agreement), you may not (a) modify,
+ * translate, adapt or otherwise create derivative works, improvements of the
+ * Software or develop new applications using the Software or (b) remove,
+ * delete, alter or obscure any trademarks or any copyright, trademark, patent
+ * or other intellectual property or proprietary rights notices on or in the
+ * Software, including any copy thereof. Redistributions in binary or source
+ * form must include this license and terms.
  * 
  * THIS SOFTWARE IS PROVIDED BY ESOTERIC SOFTWARE "AS IS" AND ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
  * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO
- * EVENT SHALL ESOTERIC SOFTARE BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ * EVENT SHALL ESOTERIC SOFTWARE BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
  * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
  * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
@@ -38,6 +39,9 @@ import spine.animation.CurveTimeline;
 import spine.animation.DrawOrderTimeline;
 import spine.animation.EventTimeline;
 import spine.animation.FfdTimeline;
+import spine.animation.FlipXTimeline;
+import spine.animation.FlipYTimeline;
+import spine.animation.IkConstraintTimeline;
 import spine.animation.RotateTimeline;
 import spine.animation.ScaleTimeline;
 import spine.animation.Timeline;
@@ -51,12 +55,6 @@ import spine.attachments.RegionAttachment;
 import spine.attachments.SkinnedMeshAttachment;
 
 public class SkeletonJson {
-	static public const TIMELINE_SCALE:String = "scale";
-	static public const TIMELINE_ROTATE:String = "rotate";
-	static public const TIMELINE_TRANSLATE:String = "translate";
-	static public const TIMELINE_ATTACHMENT:String = "attachment";
-	static public const TIMELINE_COLOR:String = "color";
-
 	public var attachmentLoader:AttachmentLoader;
 	public var scale:Number = 1;
 
@@ -66,21 +64,29 @@ public class SkeletonJson {
 
 	/** @param object A String or ByteArray. */
 	public function readSkeletonData (object:*, name:String = null) : SkeletonData {
-		if (object == null)
-			throw new ArgumentError("object cannot be null.");
+		if (object == null) throw new ArgumentError("object cannot be null.");
 
-		var json:String;
+		var root:Object;
 		if (object is String)
-			json = String(object);
+			root = JSON.parse(String(object));
 		else if (object is ByteArray)
-			json = object.readUTFBytes(object.length);
+			root = JSON.parse(object.readUTFBytes(object.length));
+		else if (object is Object)
+			root = object;
 		else
-			throw new ArgumentError("object must be a String or ByteArray.");
+			throw new ArgumentError("object must be a String, ByteArray or Object.");
 
 		var skeletonData:SkeletonData = new SkeletonData();
 		skeletonData.name = name;
 
-		var root:Object = JSON.parse(json);
+		// Skeleton.
+		var skeletonMap:Object = root["skeleton"];
+		if (skeletonMap) {
+			skeletonData.hash = skeletonMap["hash"];
+			skeletonData.version = skeletonMap["spine"];
+			skeletonData.width = skeletonMap["width"] || 0;
+			skeletonData.height = skeletonMap["height"] || 0;
+		}
 
 		// Bones.
 		var boneData:BoneData;
@@ -89,8 +95,7 @@ public class SkeletonJson {
 			var parentName:String = boneMap["parent"];
 			if (parentName) {
 				parent = skeletonData.findBone(parentName);
-				if (!parent)
-					throw new Error("Parent bone not found: " + parentName);
+				if (!parent) throw new Error("Parent bone not found: " + parentName);
 			}
 			boneData = new BoneData(boneMap["name"], parent);
 			boneData.length = (boneMap["length"] || 0) * scale;
@@ -99,17 +104,37 @@ public class SkeletonJson {
 			boneData.rotation = (boneMap["rotation"] || 0);
 			boneData.scaleX = boneMap.hasOwnProperty("scaleX") ? boneMap["scaleX"] : 1;
 			boneData.scaleY = boneMap.hasOwnProperty("scaleY") ? boneMap["scaleY"] : 1;
-			boneData.inheritScale = !boneMap["inheritScale"] || boneMap["inheritScale"] == "true";
-			boneData.inheritRotation = !boneMap["inheritRotation"] || boneMap["inheritRotation"] == "true";
-			skeletonData.addBone(boneData);
+			boneData.flipX = boneMap["flipX"] || false;
+			boneData.flipY = boneMap["flipY"] || false;
+			boneData.inheritScale = boneMap.hasOwnProperty("inheritScale") ? boneMap["inheritScale"] : true;
+			boneData.inheritRotation = boneMap.hasOwnProperty("inheritRotation") ? boneMap["inheritRotation"] : true;
+			skeletonData.bones[skeletonData.bones.length] = boneData;
+		}
+
+		// IK constraints.
+		for each (var ikMap:Object in root["ik"]) {
+			var ikConstraintData:IkConstraintData = new IkConstraintData(ikMap["name"]);
+
+			for each (var boneName:String in ikMap["bones"]) {
+				var bone:BoneData = skeletonData.findBone(boneName);
+				if (!bone) throw new Error("IK bone not found: " + boneName);
+				ikConstraintData.bones[ikConstraintData.bones.length] = bone;
+			}
+
+			ikConstraintData.target = skeletonData.findBone(ikMap["target"]);
+			if (!ikConstraintData.target) throw new Error("Target bone not found: " + ikMap["target"]);
+
+			ikConstraintData.bendDirection = (!ikMap.hasOwnProperty("bendPositive") || ikMap["bendPositive"]) ? 1 : -1;
+			ikConstraintData.mix = ikMap.hasOwnProperty("mix") ? ikMap["mix"] : 1;
+
+			skeletonData.ikConstraints[skeletonData.ikConstraints.length] = ikConstraintData;
 		}
 
 		// Slots.
 		for each (var slotMap:Object in root["slots"]) {
-			var boneName:String = slotMap["bone"];
+			boneName = slotMap["bone"];
 			boneData = skeletonData.findBone(boneName);
-			if (!boneData)
-				throw new Error("Slot bone not found: " + boneName);
+			if (!boneData) throw new Error("Slot bone not found: " + boneName);
 			var slotData:SlotData = new SlotData(slotMap["name"], boneData);
 
 			var color:String = slotMap["color"];
@@ -121,9 +146,9 @@ public class SkeletonJson {
 			}
 
 			slotData.attachmentName = slotMap["attachment"];
-			slotData.additiveBlending = slotMap["additive"];
+			slotData.blendMode = BlendMode[slotMap["blend"] || "normal"];
 
-			skeletonData.addSlot(slotData);
+			skeletonData.slots[skeletonData.slots.length] = slotData;
 		}
 
 		// Skins.
@@ -140,7 +165,7 @@ public class SkeletonJson {
 						skin.addAttachment(slotIndex, attachmentName, attachment);
 				}
 			}
-			skeletonData.addSkin(skin);
+			skeletonData.skins[skeletonData.skins.length] = skin;
 			if (skin.name == "default")
 				skeletonData.defaultSkin = skin;
 		}
@@ -154,7 +179,7 @@ public class SkeletonJson {
 				eventData.intValue = eventMap["int"] || 0;
 				eventData.floatValue = eventMap["float"] || 0;
 				eventData.stringValue = eventMap["string"] || null;
-				skeletonData.addEvent(eventData);
+				skeletonData.events[skeletonData.events.length] = eventData;
 			}
 		}
 
@@ -286,7 +311,7 @@ public class SkeletonJson {
 
 			for (timelineName in slotMap) {
 				values = slotMap[timelineName];
-				if (timelineName == TIMELINE_COLOR) {
+				if (timelineName == "color") {
 					var colorTimeline:ColorTimeline = new ColorTimeline(values.length);
 					colorTimeline.slotIndex = slotIndex;
 					
@@ -304,7 +329,7 @@ public class SkeletonJson {
 					timelines[timelines.length] = colorTimeline;
 					duration = Math.max(duration, colorTimeline.frames[colorTimeline.frameCount * 5 - 5]);
 					
-				} else if (timelineName == TIMELINE_ATTACHMENT) {
+				} else if (timelineName == "attachment") {
 					var attachmentTimeline:AttachmentTimeline = new AttachmentTimeline(values.length);
 					attachmentTimeline.slotIndex = slotIndex;
 					
@@ -313,7 +338,7 @@ public class SkeletonJson {
 						attachmentTimeline.setFrame(frameIndex++, valueMap["time"], valueMap["name"]);
 					timelines[timelines.length] = attachmentTimeline;
 					duration = Math.max(duration, attachmentTimeline.frames[attachmentTimeline.frameCount - 1]);
-					
+
 				} else
 					throw new Error("Invalid timeline type for a slot: " + timelineName + " (" + slotName + ")");
 			}
@@ -322,13 +347,12 @@ public class SkeletonJson {
 		var bones:Object = map["bones"];
 		for (var boneName:String in bones) {
 			var boneIndex:int = skeletonData.findBoneIndex(boneName);
-			if (boneIndex == -1)
-				throw new Error("Bone not found: " + boneName);
+			if (boneIndex == -1) throw new Error("Bone not found: " + boneName);
 			var boneMap:Object = bones[boneName];
 
 			for (timelineName in boneMap) {
 				values = boneMap[timelineName];
-				if (timelineName == TIMELINE_ROTATE) {
+				if (timelineName == "rotate") {
 					var rotateTimeline:RotateTimeline = new RotateTimeline(values.length);
 					rotateTimeline.boneIndex = boneIndex;
 
@@ -341,10 +365,10 @@ public class SkeletonJson {
 					timelines[timelines.length] = rotateTimeline;
 					duration = Math.max(duration, rotateTimeline.frames[rotateTimeline.frameCount * 2 - 2]);
 
-				} else if (timelineName == TIMELINE_TRANSLATE || timelineName == TIMELINE_SCALE) {
+				} else if (timelineName == "translate" || timelineName == "scale") {
 					var timeline:TranslateTimeline;
 					var timelineScale:Number = 1;
-					if (timelineName == TIMELINE_SCALE)
+					if (timelineName == "scale")
 						timeline = new ScaleTimeline(values.length);
 					else {
 						timeline = new TranslateTimeline(values.length);
@@ -363,9 +387,41 @@ public class SkeletonJson {
 					timelines[timelines.length] = timeline;
 					duration = Math.max(duration, timeline.frames[timeline.frameCount * 3 - 3]);
 
+				} else if (timelineName == "flipX" || timelineName == "flipY") {
+					var flipX:Boolean = timelineName == "flipX";
+					var flipTimeline:FlipXTimeline = flipX ? new FlipXTimeline(values.length) : new FlipYTimeline(values.length);
+					flipTimeline.boneIndex = boneIndex;
+					
+					var field:String = flipX ? "x" : "y";
+					frameIndex = 0;
+					for each (valueMap in values) {
+						flipTimeline.setFrame(frameIndex, valueMap["time"], valueMap[field] || false);
+						frameIndex++;
+					}
+					timelines[timelines.length] = flipTimeline;
+					duration = Math.max(duration, flipTimeline.frames[flipTimeline.frameCount * 3 - 3]);
+
 				} else
 					throw new Error("Invalid timeline type for a bone: " + timelineName + " (" + boneName + ")");
 			}
+		}
+
+		var ikMap:Object = map["ik"];
+		for (var ikConstraintName:String in ikMap) {
+			var ikConstraint:IkConstraintData = skeletonData.findIkConstraint(ikConstraintName);
+			values = ikMap[ikConstraintName];
+			var ikTimeline:IkConstraintTimeline = new IkConstraintTimeline(values.length);
+			ikTimeline.ikConstraintIndex = skeletonData.ikConstraints.indexOf(ikConstraint);
+			frameIndex = 0;
+			for each (valueMap in values) {
+				var mix:Number = valueMap.hasOwnProperty("mix") ? valueMap["mix"] : 1;
+				var bendDirection:int = (!valueMap.hasOwnProperty("bendPositive") || valueMap["bendPositive"]) ? 1 : -1;
+				ikTimeline.setFrame(frameIndex, valueMap["time"], mix, bendDirection);
+				readCurve(ikTimeline, frameIndex, valueMap);
+				frameIndex++;
+			}
+			timelines[timelines.length] = ikTimeline;
+			duration = Math.max(duration, ikTimeline.frames[ikTimeline.frameCount * 3 - 3]);
 		}
 
 		var ffd:Object = map["ffd"];
@@ -426,7 +482,8 @@ public class SkeletonJson {
 			}
 		}
 
-		var drawOrderValues:Object = map["draworder"];
+		var drawOrderValues:Object = map["drawOrder"];
+		if (!drawOrderValues) drawOrderValues = map["draworder"];
 		if (drawOrderValues) {
 			var drawOrderTimeline:DrawOrderTimeline = new DrawOrderTimeline(drawOrderValues.length);
 			var slotCount:int = skeletonData.slots.length;
@@ -468,7 +525,7 @@ public class SkeletonJson {
 			frameIndex = 0;
 			for each (var eventMap:Object in eventsMap) {
 				var eventData:EventData = skeletonData.findEvent(eventMap["name"]);
-				if (eventData == null) throw new Error("Event not found: " + eventMap["name"]);
+				if (!eventData) throw new Error("Event not found: " + eventMap["name"]);
 				var event:Event = new Event(eventData);
 				event.intValue = eventMap.hasOwnProperty("int") ? eventMap["int"] : eventData.intValue;
 				event.floatValue = eventMap.hasOwnProperty("float") ? eventMap["float"] : eventData.floatValue;
@@ -479,23 +536,20 @@ public class SkeletonJson {
 			duration = Math.max(duration, eventTimeline.frames[eventTimeline.frameCount - 1]);
 		}
 
-		skeletonData.addAnimation(new Animation(name, timelines, duration));
+		skeletonData.animations[skeletonData.animations.length] = new Animation(name, timelines, duration);
 	}
 
 	static private function readCurve (timeline:CurveTimeline, frameIndex:int, valueMap:Object) : void {
 		var curve:Object = valueMap["curve"];
-		if (curve == null)
-			return;
+		if (!curve) return;
 		if (curve == "stepped")
 			timeline.setStepped(frameIndex);
-		else if (curve is Array) {
+		else if (curve is Array)
 			timeline.setCurve(frameIndex, curve[0], curve[1], curve[2], curve[3]);
-		}
 	}
 
 	static private function toColor (hexString:String, colorIndex:int) : Number {
-		if (hexString.length != 8)
-			throw new ArgumentError("Color hexidecimal length must be 8, recieved: " + hexString);
+		if (hexString.length != 8) throw new ArgumentError("Color hexidecimal length must be 8, recieved: " + hexString);
 		return parseInt(hexString.substring(colorIndex * 2, colorIndex * 2 + 2), 16) / 255;
 	}
 
