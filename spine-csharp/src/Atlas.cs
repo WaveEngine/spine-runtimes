@@ -36,7 +36,6 @@ using System.Reflection;
 
 #if WINDOWS_STOREAPP
 using System.Threading.Tasks;
-using Windows.Storage;
 #endif
 
 namespace Spine {

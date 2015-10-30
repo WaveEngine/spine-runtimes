@@ -35,7 +35,6 @@ using System.Collections.Generic;
 
 #if WINDOWS_STOREAPP
 using System.Threading.Tasks;
-using Windows.Storage;
 #endif
 
 namespace Spine {
@@ -69,12 +68,13 @@ namespace Spine {
 
 #if WINDOWS_STOREAPP
 		private async Task<SkeletonData> ReadFile(string path) {
-			var folder = Windows.ApplicationModel.Package.Current.InstalledLocation;
+            /*var folder = Windows.ApplicationModel.Package.Current.InstalledLocation;
 			using (var input = new BufferedStream(await folder.GetFileAsync(path).AsTask().ConfigureAwait(false))) {
 				SkeletonData skeletonData = ReadSkeletonData(input);
 				skeletonData.Name = Path.GetFileNameWithoutExtension(path);
 				return skeletonData;
-			}
+			}*/
+            return null;
 		}
 
 		public SkeletonData ReadSkeletonData (String path) {
@@ -83,19 +83,21 @@ namespace Spine {
 #else
 		public SkeletonData ReadSkeletonData (String path) {
 #if WINDOWS_PHONE
-			using (var input = new BufferedStream(Microsoft.Xna.Framework.TitleContainer.OpenStream(path)))
-			{
+            /*using (var input = new BufferedStream(Microsoft.Xna.Framework.TitleContainer.OpenStream(path)))
+			{*/
+            return null;
 #else
 			using (var input = new BufferedStream(new FileStream(path, FileMode.Open))) {
-#endif
+
 				SkeletonData skeletonData = ReadSkeletonData(input);
 				skeletonData.name = Path.GetFileNameWithoutExtension(path);
 				return skeletonData;
 			}
-		}
+#endif
+            }
 #endif
 
-		public SkeletonData ReadSkeletonData (Stream input) {
+        public SkeletonData ReadSkeletonData (Stream input) {
 			if (input == null) throw new ArgumentNullException("input cannot be null.");
 			float scale = Scale;
 

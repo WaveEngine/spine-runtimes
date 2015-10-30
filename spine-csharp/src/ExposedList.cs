@@ -36,7 +36,9 @@ using System.Collections.Generic;
 using System.Diagnostics;
 
 namespace Spine {
-	[Serializable]
+#if !WINDOWS_STOREAPP && !WINDOWS_PHONE
+    [Serializable]
+#endif
 	[DebuggerDisplay("Count={Count}")]
 	public class ExposedList<T> : IEnumerable<T> {
 		public T[] Items;
@@ -152,7 +154,8 @@ namespace Spine {
 			return Array.IndexOf<T>(Items, item, 0, Count) != -1;
 		}
 
-		public ExposedList<TOutput> ConvertAll<TOutput> (Converter<T, TOutput> converter) {
+#if !WINDOWS_STOREAPP
+        public ExposedList<TOutput> ConvertAll<TOutput> (Converter<T, TOutput> converter) {
 			if (converter == null)
 				throw new ArgumentNullException("converter");
 			ExposedList<TOutput> u = new ExposedList<TOutput>(Count);
@@ -162,8 +165,9 @@ namespace Spine {
 			u.Count = Count;
 			return u;
 		}
+#endif
 
-		public void CopyTo (T[] array) {
+        public void CopyTo (T[] array) {
 			Array.Copy(Items, 0, array, 0, Count);
 		}
 
@@ -507,7 +511,7 @@ namespace Spine {
 			}
 		}
 
-		#region Interface implementations.
+#region Interface implementations.
 
 		IEnumerator<T> IEnumerable<T>.GetEnumerator () {
 			return GetEnumerator();
@@ -517,10 +521,12 @@ namespace Spine {
 			return GetEnumerator();
 		}
 
-		#endregion
+        #endregion
 
+#if !WINDOWS_STOREAPP && !WINDOWS_PHONE
 		[Serializable]
-		public struct Enumerator : IEnumerator<T>, IDisposable {
+#endif
+        public struct Enumerator : IEnumerator<T>, IDisposable {
 			private ExposedList<T> l;
 			private int next;
 			private int ver;
