@@ -67,32 +67,38 @@ namespace Spine {
 			Scale = 1;
 		}
 
-		#if !(UNITY_5 || UNITY_4 || UNITY_WSA || UNITY_WP8 || UNITY_WP8_1)
-		#if WINDOWS_STOREAPP
+#if !(UNITY_5 || UNITY_4 || UNITY_WSA || UNITY_WP8 || UNITY_WP8_1)
+#if WINDOWS_STOREAPP
 
 		private async Task<SkeletonData> ReadFile(string path) {
-			var folder = Windows.ApplicationModel.Package.Current.InstalledLocation;
-			using (var input = new BufferedStream(await folder.GetFileAsync(path).AsTask().ConfigureAwait(false))) {
-				SkeletonData skeletonData = ReadSkeletonData(input);
-				skeletonData.Name = Path.GetFileNameWithoutExtension(path);
-				return skeletonData;
-			}
+            // We comment this, although looks hackish:
+            // http://es.esotericsoftware.com/forum/Unity-Build-for-Windows-Store-3709?p=21134
+			//var folder = Windows.ApplicationModel.Package.Current.InstalledLocation;
+			//using (var input = new BufferedStream(await folder.GetFileAsync(path).AsTask().ConfigureAwait(false))) {
+			//	SkeletonData skeletonData = ReadSkeletonData(input);
+			//	skeletonData.Name = Path.GetFileNameWithoutExtension(path);
+			//	return skeletonData;
+			//}
+
+            return null;
 		}
 
 		public SkeletonData ReadSkeletonData (String path) {
 			return this.ReadFile(path).Result;
 		}
-		#else
-		public SkeletonData ReadSkeletonData (String path) {
-		#if WINDOWS_PHONE
-			using (var input = new BufferedStream(Microsoft.Xna.Framework.TitleContainer.OpenStream(path))) {
-		#else
-			using (var input = new BufferedStream(new FileStream(path, FileMode.Open))) {
-		#endif // WINDOWS_PHONE
-				SkeletonData skeletonData = ReadSkeletonData(input);
-				skeletonData.name = Path.GetFileNameWithoutExtension(path);
-				return skeletonData;
-			}
+#else
+        public SkeletonData ReadSkeletonData (String path) {
+            //#if WINDOWS_PHONE
+            //	using (var input = new BufferedStream(Microsoft.Xna.Framework.TitleContainer.OpenStream(path))) {
+            //#else
+            //	using (var input = new BufferedStream(new FileStream(path, FileMode.Open))) {
+            //#endif // WINDOWS_PHONE
+            //		SkeletonData skeletonData = ReadSkeletonData(input);
+            //		skeletonData.name = Path.GetFileNameWithoutExtension(path);
+            //		return skeletonData;
+            //	}
+
+            return null;
 		}
 
 		#endif // WINDOWS_STOREAPP
