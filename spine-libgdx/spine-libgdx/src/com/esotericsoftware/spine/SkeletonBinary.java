@@ -47,8 +47,6 @@ import com.esotericsoftware.spine.Animation.CurveTimeline;
 import com.esotericsoftware.spine.Animation.DrawOrderTimeline;
 import com.esotericsoftware.spine.Animation.EventTimeline;
 import com.esotericsoftware.spine.Animation.FfdTimeline;
-import com.esotericsoftware.spine.Animation.FlipXTimeline;
-import com.esotericsoftware.spine.Animation.FlipYTimeline;
 import com.esotericsoftware.spine.Animation.IkConstraintTimeline;
 import com.esotericsoftware.spine.Animation.RotateTimeline;
 import com.esotericsoftware.spine.Animation.ScaleTimeline;
@@ -69,8 +67,6 @@ public class SkeletonBinary {
 	static public final int TIMELINE_TRANSLATE = 2;
 	static public final int TIMELINE_ATTACHMENT = 3;
 	static public final int TIMELINE_COLOR = 4;
-	static public final int TIMELINE_FLIPX = 5;
-	static public final int TIMELINE_FLIPY = 6;
 
 	static public final int CURVE_LINEAR = 0;
 	static public final int CURVE_STEPPED = 1;
@@ -135,8 +131,6 @@ public class SkeletonBinary {
 				boneData.scaleY = input.readFloat();
 				boneData.rotation = input.readFloat();
 				boneData.length = input.readFloat() * scale;
-				boneData.flipX = input.readBoolean();
-				boneData.flipY = input.readBoolean();
 				boneData.inheritScale = input.readBoolean();
 				boneData.inheritRotation = input.readBoolean();
 				if (nonessential) Color.rgba8888ToColor(boneData.color, input.readInt());
@@ -222,7 +216,8 @@ public class SkeletonBinary {
 		return skin;
 	}
 
-	private Attachment readAttachment (DataInput input, Skin skin, String attachmentName, boolean nonessential) throws IOException {
+	private Attachment readAttachment (DataInput input, Skin skin, String attachmentName, boolean nonessential)
+		throws IOException {
 		float scale = this.scale;
 
 		String name = input.readString();
@@ -411,23 +406,12 @@ public class SkeletonBinary {
 						}
 						timeline.boneIndex = boneIndex;
 						for (int frameIndex = 0; frameIndex < frameCount; frameIndex++) {
-							timeline.setFrame(frameIndex, input.readFloat(), input.readFloat() * timelineScale, input.readFloat()
-								* timelineScale);
+							timeline.setFrame(frameIndex, input.readFloat(), input.readFloat() * timelineScale,
+								input.readFloat() * timelineScale);
 							if (frameIndex < frameCount - 1) readCurve(input, frameIndex, timeline);
 						}
 						timelines.add(timeline);
 						duration = Math.max(duration, timeline.getFrames()[frameCount * 3 - 3]);
-						break;
-					}
-					case TIMELINE_FLIPX:
-					case TIMELINE_FLIPY: {
-						FlipXTimeline timeline = timelineType == TIMELINE_FLIPX ? new FlipXTimeline(frameCount) : new FlipYTimeline(
-							frameCount);
-						timeline.boneIndex = boneIndex;
-						for (int frameIndex = 0; frameIndex < frameCount; frameIndex++)
-							timeline.setFrame(frameIndex, input.readFloat(), input.readBoolean());
-						timelines.add(timeline);
-						duration = Math.max(duration, timeline.getFrames()[frameCount * 2 - 2]);
 						break;
 					}
 					}
@@ -541,11 +525,11 @@ public class SkeletonBinary {
 				for (int i = 0; i < eventCount; i++) {
 					float time = input.readFloat();
 					EventData eventData = skeletonData.events.get(input.readInt(true));
-					Event event = new Event(eventData);
+					Event event = new Event(time, eventData);
 					event.intValue = input.readInt(false);
 					event.floatValue = input.readFloat();
 					event.stringValue = input.readBoolean() ? input.readString() : eventData.stringValue;
-					timeline.setFrame(i, time, event);
+					timeline.setFrame(i, event);
 				}
 				timelines.add(timeline);
 				duration = Math.max(duration, timeline.getFrames()[eventCount - 1]);

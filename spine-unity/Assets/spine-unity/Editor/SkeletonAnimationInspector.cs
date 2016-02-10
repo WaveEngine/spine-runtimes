@@ -36,8 +36,9 @@ using Spine;
 
 [CustomEditor(typeof(SkeletonAnimation))]
 public class SkeletonAnimationInspector : SkeletonRendererInspector {
-	protected SerializedProperty animationName, loop, timeScale;
-	protected bool isPrefab;
+	protected SerializedProperty animationName, loop, timeScale, autoReset;
+	protected bool m_isPrefab;
+	protected bool wasAnimationNameChanged;
 
 	protected override void OnEnable () {
 		base.OnEnable();
@@ -46,9 +47,7 @@ public class SkeletonAnimationInspector : SkeletonRendererInspector {
 		timeScale = serializedObject.FindProperty("timeScale");
 
 		if (PrefabUtility.GetPrefabType(this.target) == PrefabType.Prefab)
-			isPrefab = true;
-
-
+			m_isPrefab = true;
 	}
 
 	protected override void gui () {
@@ -57,50 +56,52 @@ public class SkeletonAnimationInspector : SkeletonRendererInspector {
 		SkeletonAnimation component = (SkeletonAnimation)target;
 		if (!component.valid)
 			return;
+		
+		if (wasAnimationNameChanged) {
+			if (!Application.isPlaying) {
+				component.state.ClearTrack(0);
+				component.skeleton.SetToSetupPose();
+			}
 
-		//catch case where SetAnimation was used to set track 0 without using AnimationName
+			Spine.Animation animationToUse = component.skeleton.Data.FindAnimation(animationName.stringValue);
+
+			if (!Application.isPlaying) {
+				if (animationToUse != null) animationToUse.Apply(component.skeleton, 0f, 0f, false, null);
+				component.Update();
+				component.LateUpdate();
+				SceneView.RepaintAll();
+			} else {
+				if (animationToUse != null)
+					component.state.SetAnimation(0, animationToUse, loop.boolValue);
+				else
+					component.state.ClearTrack(0);
+			}
+
+			wasAnimationNameChanged = false;
+		}
+
+		// Reflect animationName serialized property in the inspector even if SetAnimation API was used.
 		if (Application.isPlaying) {
-			TrackEntry currentState = component.state.GetCurrent(0);
-			if (currentState != null) {
+			TrackEntry current = component.state.GetCurrent(0);
+			if (current != null) {
 				if (component.AnimationName != animationName.stringValue) {
-					animationName.stringValue = currentState.Animation.Name;
+					animationName.stringValue = current.Animation.Name;
 				}
 			}
 		}
 
 		EditorGUILayout.Space();
-
-		//TODO:  Refactor this to use GenericMenu and callbacks to avoid interfering with control by other behaviours.
-		// Animation name.
-		{
-			String[] animations = new String[component.skeleton.Data.Animations.Count + 1];
-			animations[0] = "<None>";
-			int animationIndex = 0;
-			for (int i = 0; i < animations.Length - 1; i++) {
-				String name = component.skeleton.Data.Animations.Items[i].Name;
-				animations[i + 1] = name;
-				if (name == animationName.stringValue)
-					animationIndex = i + 1;
-			}
-		
-			animationIndex = EditorGUILayout.Popup("Animation", animationIndex, animations);
-
-			String selectedAnimationName = animationIndex == 0 ? null : animations[animationIndex];
-			if (component.AnimationName != selectedAnimationName) {
-				component.AnimationName = selectedAnimationName;
-				animationName.stringValue = selectedAnimationName;
-			}
-
-
-		}
-
+		EditorGUI.BeginChangeCheck();
+		EditorGUILayout.PropertyField(animationName);
+		wasAnimationNameChanged |= EditorGUI.EndChangeCheck();
+			
 		EditorGUILayout.PropertyField(loop);
 		EditorGUILayout.PropertyField(timeScale);
 		component.timeScale = Math.Max(component.timeScale, 0);
 
 		EditorGUILayout.Space();
 
-		if (!isPrefab) {
+		if (!m_isPrefab) {
 			if (component.GetComponent<SkeletonUtility>() == null) {
 				if (GUILayout.Button(new GUIContent("Add Skeleton Utility", SpineEditorUtilities.Icons.skeletonUtility), GUILayout.Height(30))) {
 					component.gameObject.AddComponent<SkeletonUtility>();
