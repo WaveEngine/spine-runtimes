@@ -95,16 +95,14 @@ public class Bone implements Updatable {
 		if (parent == null) { // Root bone.
 			Skeleton skeleton = this.skeleton;
 			if (skeleton.flipX) {
-				la = -la;
-				lc = -lc;
-				scaleX = -scaleX;
 				x = -x;
+				la = -la;
+				lb = -lb;
 			}
 			if (skeleton.flipY) {
-				lb = -lb;
-				ld = -ld;
-				scaleY = -scaleY;
 				y = -y;
+				lc = -lc;
+				ld = -ld;
 			}
 			a = la;
 			b = lb;
@@ -151,6 +149,14 @@ public class Bone implements Updatable {
 			b = pa * lb + pb * ld;
 			c = pc * la + pd * lc;
 			d = pc * lb + pd * ld;
+			if (skeleton.flipX) {
+				a = -a;
+				b = -b;
+			}
+			if (skeleton.flipY) {
+				c = -c;
+				d = -d;
+			}
 		} else if (data.inheritScale) { // No rotation inheritance.
 			Bone p = parent;
 			pa = 1;
@@ -186,6 +192,14 @@ public class Bone implements Updatable {
 			b = pa * lb + pb * ld;
 			c = pc * la + pd * lc;
 			d = pc * lb + pd * ld;
+			if (skeleton.flipX) {
+				a = -a;
+				b = -b;
+			}
+			if (skeleton.flipY) {
+				c = -c;
+				d = -d;
+			}
 		} else {
 			a = la;
 			b = lb;
@@ -300,12 +314,20 @@ public class Bone implements Updatable {
 		return worldY;
 	}
 
+	public float getWorldSignX () {
+		return worldSignX;
+	}
+
+	public float getWorldSignY () {
+		return worldSignY;
+	}
+
 	public float getWorldRotationX () {
-		return (float)Math.atan2(c, a) * MathUtils.radDeg;
+		return MathUtils.atan2(c, a) * MathUtils.radDeg;
 	}
 
 	public float getWorldRotationY () {
-		return (float)Math.atan2(d, b) * MathUtils.radDeg;
+		return MathUtils.atan2(d, b) * MathUtils.radDeg;
 	}
 
 	public float getWorldScaleX () {
@@ -314,14 +336,6 @@ public class Bone implements Updatable {
 
 	public float getWorldScaleY () {
 		return (float)Math.sqrt(c * c + d * d) * worldSignY;
-	}
-
-	public float getWorldSignX () {
-		return worldSignX;
-	}
-
-	public float getWorldSignY () {
-		return worldSignY;
 	}
 
 	public Matrix3 getWorldTransform (Matrix3 worldTransform) {

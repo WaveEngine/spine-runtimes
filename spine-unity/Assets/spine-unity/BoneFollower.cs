@@ -77,8 +77,8 @@ public class BoneFollower : MonoBehaviour {
 			return;
 		skeletonTransform = skeletonRenderer.transform;
 
-		skeletonRenderer.OnReset -= HandleResetRenderer;
-		skeletonRenderer.OnReset += HandleResetRenderer;
+		skeletonRenderer.OnRebuild -= HandleResetRenderer;
+		skeletonRenderer.OnRebuild += HandleResetRenderer;
 
 		if (Application.isEditor)
 			DoUpdate();
@@ -87,7 +87,7 @@ public class BoneFollower : MonoBehaviour {
 	void OnDestroy () {
 		//cleanup
 		if (skeletonRenderer != null)
-			skeletonRenderer.OnReset -= HandleResetRenderer;
+			skeletonRenderer.OnRebuild -= HandleResetRenderer;
 	}
 
 	public void Awake () {
@@ -125,7 +125,7 @@ public class BoneFollower : MonoBehaviour {
 
 			if (followBoneRotation) {
 				Vector3 rotation = cachedTransform.localRotation.eulerAngles;
-				cachedTransform.localRotation = Quaternion.Euler(rotation.x, rotation.y, bone.worldRotation * flipRotation);
+				cachedTransform.localRotation = Quaternion.Euler(rotation.x, rotation.y, bone.WorldRotationX * flipRotation);
 			}
 
 		} else {
@@ -138,7 +138,7 @@ public class BoneFollower : MonoBehaviour {
 			if (followBoneRotation) {
 				Vector3 rotation = skeletonTransform.rotation.eulerAngles;
 
-				cachedTransform.rotation = Quaternion.Euler(rotation.x, rotation.y, skeletonTransform.rotation.eulerAngles.z + (bone.worldRotation * flipRotation));
+				cachedTransform.rotation = Quaternion.Euler(rotation.x, rotation.y, skeletonTransform.rotation.eulerAngles.z + (bone.WorldRotationX * flipRotation));
 			}
 		}
 
