@@ -116,7 +116,7 @@
     <Compile Include="src\Attachments\BoundingBoxAttachment.cs" />
     <Compile Include="src\Attachments\MeshAttachment.cs" />
     <Compile Include="src\Attachments\RegionAttachment.cs" />
-    <Compile Include="src\Attachments\SkinnedMeshAttachment.cs" />
+    <Compile Include="src\Attachments\WeightedMeshAttachment.cs" />
     <Compile Include="src\BlendMode.cs" />
     <Compile Include="src\Bone.cs" />
     <Compile Include="src\BoneData.cs" />
@@ -125,14 +125,20 @@
     <Compile Include="src\ExposedList.cs" />
     <Compile Include="src\IkConstraint.cs" />
     <Compile Include="src\IkConstraintData.cs" />
+    <Compile Include="src\IUpdatable.cs" />
     <Compile Include="src\Json.cs" />
+    <Compile Include="src\MathUtils.cs" />
+    <Compile Include="src\SharpJson.cs" />
     <Compile Include="src\Skeleton.cs" />
     <Compile Include="src\SkeletonBinary.cs" />
+    <Compile Include="src\SkeletonBounds.cs" />
     <Compile Include="src\SkeletonData.cs" />
     <Compile Include="src\SkeletonJson.cs" />
     <Compile Include="src\Skin.cs" />
     <Compile Include="src\Slot.cs" />
     <Compile Include="src\SlotData.cs" />
+    <Compile Include="src\TransformConstraint.cs" />
+    <Compile Include="src\TransformConstraintData.cs" />
   </ItemGroup>
   <PropertyGroup Condition=" '$(VisualStudioVersion)' == '' or '$(VisualStudioVersion)' &lt; '12.0' ">
     <VisualStudioVersion>12.0</VisualStudioVersion>
